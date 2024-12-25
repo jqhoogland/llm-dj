@@ -5,9 +5,10 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 <!-- [![Tests](https://img.shields.io/badge/tests-pytest-green.svg)](https://docs.pytest.org/en/stable/) --> 
 
-![LLM DJ](./assets/llm-dj.png)
-
 An intelligent music curation system that leverages Large Language Models and Spotify's API to generate contextual playlists.
+
+![LLM DJ](./docs/assets/llm-dj.png)
+
 
 ## Overview
 

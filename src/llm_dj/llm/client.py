@@ -1,32 +1,72 @@
-from enum import Enum
-import os
-from typing import List, Literal
-from openai import AsyncOpenAI
+from typing import List, Literal, Optional
+from langchain_core.language_models import BaseChatModel
+from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
+from pydantic import BaseModel, Field
 from llm_dj.config import Config
-from pydantic import BaseModel
-
-MODEL = os.getenv("MODEL", "gpt-4o-2024-08-06")
-MAX_TOKENS = os.getenv("MAX_TOKENS", 2000)
-
 
 class Suggestion(BaseModel):
-    name: str
-    artist: str
-    type_: Literal["song", "album"]
-
+    """A music suggestion."""
+    name: str = Field(description="The name of the song or album")
+    artist: str = Field(description="The artist name")
+    type_: Literal["song", "album"] = Field(description="Whether this is a song or album suggestion")
 
 class Suggestions(BaseModel):
-    playlist_name: str
-    description: str
-    suggestions: List[Suggestion]
-
+    """A collection of music suggestions forming a playlist."""
+    playlist_name: str = Field(description="A creative name for the playlist")
+    description: str = Field(description="A brief description of the playlist's theme/mood")
+    suggestions: List[Suggestion] = Field(description="List of music suggestions")
 
 class LLMClient:
+    """LLM client supporting multiple backends."""
 
-    def __init__(self):
-        self.client = AsyncOpenAI(api_key=Config.LLM_API_KEY)
+    SUPPORTED_PROVIDERS = {
+        "openai": ChatOpenAI,
+        "anthropic": ChatAnthropic,
+    }
 
-    async def get_music_suggestions(self, prompt):
+    def __init__(
+        self, 
+        provider: str = "openai",
+        model_name: Optional[str] = None,
+        max_tokens: int = 2000
+    ):
+        """Initialize the LLM client.
+        
+        Args:
+            provider: The LLM provider to use ("openai" or "anthropic")
+            model_name: The specific model to use. If None, uses provider defaults
+            max_tokens: Maximum tokens for response
+        """
+        if provider not in self.SUPPORTED_PROVIDERS:
+            raise ValueError(f"Provider {provider} not supported. Choose from: {list(self.SUPPORTED_PROVIDERS.keys())}")
+
+        # Set default models per provider
+        default_models = {
+            "openai": "gpt-4-0125-preview",
+            "anthropic": "claude-3-sonnet-20240229"
+        }
+
+        model = model_name or default_models[provider]
+        
+        # Initialize the appropriate client
+        if provider == "openai":
+            self.llm: BaseChatModel = ChatOpenAI(
+                api_key=Config.OPENAI_API_KEY,
+                model=model,
+                max_tokens=max_tokens
+            )
+        else:  # anthropic
+            self.llm: BaseChatModel = ChatAnthropic(
+                api_key=Config.ANTHROPIC_API_KEY,
+                model=model,
+                max_tokens=max_tokens
+            )
+
+        self.structured_llm = self.llm.with_structured_output(Suggestions)
+        self.provider = provider
+
+    async def get_music_suggestions(self, prompt: str) -> Suggestions:
         """Get music suggestions from the LLM.
 
         Args:
@@ -34,14 +74,5 @@ class LLMClient:
 
         Returns:
             Suggestions object containing playlist details and song suggestions
-
-        Raises:
-            OpenAIError: If the API request fails
         """
-        response = await self.client.beta.chat.completions.parse(
-            model=MODEL,
-            max_tokens=MAX_TOKENS,
-            messages=[{"role": "user", "content": prompt}],
-            response_format=Suggestions,
-        )
-        return response.choices[0].message.parsed
+        return await self.structured_llm.ainvoke(prompt)

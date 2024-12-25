@@ -4,6 +4,7 @@ from rich.pretty import pprint
 import typer
 from llm_dj.spotify.client import SpotifyClient
 from llm_dj.llm.client import LLMClient
+from llm_dj.config import Config
 import asyncio
 
 app = typer.Typer()
@@ -15,10 +16,16 @@ class LLMDJ:
     Combines Spotify and LLM functionality to create AI-powered playlists.
     """
 
-    def __init__(self):
-        """Initialize the LLMDJ with Spotify and LLM clients."""
+    def __init__(self, llm_provider: Optional[str] = None):
+        """Initialize the LLMDJ with Spotify and LLM clients.
+        
+        Args:
+            llm_provider: Override the default LLM provider from config
+        """
         self.spotify = SpotifyClient()
-        self.llm = LLMClient()
+        self.llm = LLMClient(provider=llm_provider or Config.LLM_PROVIDER)
+
+        print(f"[bold green]LLM provider: {self.llm.provider}[/bold green]")
 
     async def create_playlist_from_prompt(
         self, prompt, playlist_name: Optional[str] = None
@@ -107,6 +114,8 @@ Based on these songs and the following request, suggest additional songs:
 
         # Get song suggestions from LLM
         suggestions = await self.llm.get_music_suggestions(enhanced_prompt)
+
+        pprint(suggestions)
         
         if not suggestions:
             raise ValueError("No song suggestions found")
@@ -149,11 +158,15 @@ def create(
         None,
         help="Name of the playlist. If not provided, will be generated from the prompt",
     ),
+    provider: str = typer.Option(
+        None,
+        help="LLM provider to use (openai/anthropic). Overrides the LLM_PROVIDER env variable",
+    ),
 ):
     """Create a new playlist from a prompt."""
 
     async def _create():
-        dj = LLMDJ()
+        dj = LLMDJ(llm_provider=provider)
         await dj.create_playlist_from_prompt(prompt, name)
 
     asyncio.run(_create())
@@ -163,22 +176,31 @@ def create(
 def extend(
     playlist_id: str = typer.Argument(..., help="The ID of the playlist to extend"),
     prompt: str = typer.Argument(..., help="The prompt to generate additional songs"),
+    provider: str = typer.Option(
+        None,
+        help="LLM provider to use (openai/anthropic). Overrides the LLM_PROVIDER env variable",
+    ),
 ):
     """Extend an existing playlist with new songs based on a prompt."""
 
     async def _extend():
-        dj = LLMDJ()
+        dj = LLMDJ(llm_provider=provider)
         await dj.extend_playlist_from_prompt(playlist_id, prompt)
 
     asyncio.run(_extend())
 
 
 @app.command()
-def list_playlists():
+def list_playlists(
+    provider: str = typer.Option(
+        None,
+        help="LLM provider to use (openai/anthropic). Overrides the LLM_PROVIDER env variable",
+    ),
+):
     """List all playlists and their IDs."""
 
     async def _list():
-        dj = LLMDJ()
+        dj = LLMDJ(llm_provider=provider)
         await dj.list_playlists()
 
     asyncio.run(_list())

@@ -71,6 +71,76 @@ class LLMDJ:
 
         return playlist
 
+    async def list_playlists(self):
+        """List all playlists for the current user."""
+        playlists = self.spotify.get_user_playlists()
+        print("\n[bold blue]Your Playlists:[/bold blue]")
+        for playlist in playlists['items']:
+            print(f"[green]ID:[/green] {playlist['id']}")
+            print(f"[green]Name:[/green] {playlist['name']}")
+            print(f"[green]Tracks:[/green] {playlist['tracks']['total']}")
+            print("---")
+        return playlists
+
+    async def extend_playlist_from_prompt(self, playlist_id: str, prompt: str):
+        """Extend an existing playlist using an LLM prompt."""
+        # Get the existing playlist
+        playlist = self.spotify.get_playlist(playlist_id)
+        if not playlist:
+            raise ValueError(f"Playlist with ID {playlist_id} not found")
+
+        print(f"[bold blue]Extending playlist: {playlist['name']}[/bold blue]")
+        
+        # Get existing tracks
+        existing_tracks = []
+        for item in playlist['tracks']['items']:
+            track = item['track']
+            artists = ", ".join(artist['name'] for artist in track['artists'])
+            existing_tracks.append(f"{track['name']} by {artists}")
+        
+        # Create an enhanced prompt that includes existing tracks
+        enhanced_prompt = f"""Existing songs in the playlist:
+{chr(10).join(f"- {track}" for track in existing_tracks)}
+
+Based on these songs and the following request, suggest additional songs:
+{prompt}"""
+
+        # Get song suggestions from LLM
+        suggestions = await self.llm.get_music_suggestions(enhanced_prompt)
+        
+        if not suggestions:
+            raise ValueError("No song suggestions found")
+        
+        # Add tracks using the same logic as create_playlist_from_prompt
+        for song in suggestions.suggestions:
+            if not song:
+                continue
+
+            if song.type_ == "song":
+                print(f"[bold green][{song.type_}] {song.name}[/bold green]")
+                results = self.spotify.search_tracks(song.name + " " + song.artist)
+
+                if results and results['tracks']['items']:
+                    track_uri = results['tracks']['items'][0]['uri']
+                    self.spotify.client.playlist_add_items(playlist_id, [track_uri])
+            elif song.type_ == "album":
+                print(f"[bold blue][{song.type_}] {song.name}[/bold blue]")
+                results = self.spotify.search_albums(song.name + " " + song.artist)
+
+                if results and results['albums']['items']:
+                    album_uri = results['albums']['items'][0]['uri']
+                    tracks = self.spotify.search_tracks_by_album(album_uri)
+                    track_uris = [track['uri'] for track in tracks['items']]
+                    for track in track_uris:
+                        print(f"[bold green]\t{track}[/bold green]")
+                    self.spotify.client.playlist_add_items(playlist_id, track_uris)
+                else:
+                    print(f"[bold red]No album found for: {song.name}[/bold red]")
+            else:
+                raise ValueError(f"Invalid suggestion type: {song.type_}")
+
+        return playlist
+
 
 @app.command()
 def create(

@@ -7,7 +7,13 @@ from llm_dj.llm.client import LLMClient
 import asyncio
 
 class LLMDJ:
+    """Main class for the LLM DJ application.
+    
+    Combines Spotify and LLM functionality to create AI-powered playlists.
+    """
+
     def __init__(self):
+        """Initialize the LLMDJ with Spotify and LLM clients."""
         self.spotify = SpotifyClient()
         self.llm = LLMClient()
 

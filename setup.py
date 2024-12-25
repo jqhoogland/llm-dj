@@ -8,7 +8,7 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
 
 setup(
     name="llm-dj",
-    version="0.1.0",
+    version=__import__("llm_dj").__version__,
     author="Your Name",
     author_email="your.email@example.com",
     description="An AI-powered music curator using Spotify and LLMs",
@@ -36,5 +36,4 @@ setup(
         ],
     },
     include_package_data=True,
-    zip_safe=False,
 )

@@ -1,6 +1,6 @@
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
-from ..config import Config
+from llm_dj.config import Config
 
 class SpotifyClient:
     def __init__(self):
@@ -15,5 +15,14 @@ class SpotifyClient:
         user_id = self.client.current_user()["id"]
         return self.client.user_playlist_create(user_id, name, description=description)
 
-    def search_tracks(self, query, limit=10):
+    def search_tracks(self, query, limit=50):
         return self.client.search(query, limit=limit, type="track") 
+    
+    def search_albums(self, query, limit=50):
+        return self.client.search(query, limit=limit, type="album") 
+    
+    def search_tracks_by_album(self, album_id, limit=50):
+        return self.client.album_tracks(album_id, limit=limit)
+    
+    def search_artists(self, query, limit=50):
+        return self.client.search(query, limit=limit, type="artist") 
